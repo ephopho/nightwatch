@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+venv
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+*-key.json
+service-account*.json
+.pytest_cache
+.ruff_cache
+.mypy_cache

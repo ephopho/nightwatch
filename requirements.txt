@@ -1,0 +1,9 @@
+# Nightwatch — Python deps. Pin exact versions once your environment resolves;
+# ADK's API surface evolves, so check https://google.github.io/adk-docs/ if imports drift.
+google-adk>=1.0.0
+google-genai>=1.0.0
+google-cloud-firestore>=2.16.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+requests>=2.31.0
+python-dotenv>=1.0.0
