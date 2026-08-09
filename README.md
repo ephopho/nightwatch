@@ -109,6 +109,25 @@ this is pure config — no code changes.
 If a token is wrong, the tool now returns the provider's own error (e.g. GitHub
 `Bad credentials`, Telegram `chat not found`) in the run result instead of failing silently.
 
+## Securing the run trigger
+The service is deployed `--allow-unauthenticated` so the dashboard is public, but the
+**trigger endpoints are token-gated** so nobody can run up Vertex cost:
+
+- `POST /run` and `/pubsub/push` require a shared **`RUN_TOKEN`** — `deploy.sh` creates it
+  once as the Secret Manager secret **`nightwatch-run-token`** and injects it. `/` and
+  `/health` stay open. Locally, `RUN_TOKEN` unset ⇒ the trigger endpoints are open.
+- Trigger a run by hand:
+  ```bash
+  TOKEN=$(gcloud secrets versions access latest --secret=nightwatch-run-token)
+  curl -X POST "$SERVICE_URL/run" -H "Authorization: Bearer $TOKEN" \
+       -H "Content-Type: application/json" -d '{}'
+  ```
+  The dashboard's **Run now** button prompts for the same token (never embedded in the page).
+- The scheduled path passes the token via the Pub/Sub push URL (`?token=…`) since Pub/Sub
+  push can't set custom headers. **Caveat:** that means the token appears in the push
+  subscription config and Cloud Run request logs (visible to project members). For stricter
+  hygiene, switch `/pubsub/push` to Pub/Sub **OIDC** auth.
+
 ## Status / what's live
 Structure, agents, deploy path, and dashboard are **real**. Data tools:
 - ✅ **`fetch_market`** — live CoinGecko `/simple/price` (USD + 24h change).

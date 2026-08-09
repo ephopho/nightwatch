@@ -29,3 +29,8 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "")          # "owner/repo" for review issues
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+# --- Run-trigger auth -------------------------------------------------------
+# When set, POST /run and /pubsub/push require this shared token (Bearer header or a
+# ?token= query param). Left unset (local dev), the trigger endpoints stay open.
+RUN_TOKEN = os.getenv("RUN_TOKEN", "")

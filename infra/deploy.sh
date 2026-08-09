@@ -42,6 +42,13 @@ fi
 if ensure_secret nightwatch-telegram-bot-token "${TELEGRAM_BOT_TOKEN:-}"; then
   SECRET_FLAGS+=("TELEGRAM_BOT_TOKEN=nightwatch-telegram-bot-token:latest")
 fi
+# Run-trigger token — create once (random) if absent, then ALWAYS attach so POST /run and
+# /pubsub/push are gated. Its value is fetched here to embed in the Pub/Sub push URL (step 5).
+if ! gcloud secrets describe nightwatch-run-token >/dev/null 2>&1; then
+  openssl rand -hex 32 | tr -d '\n' | gcloud secrets create nightwatch-run-token --replication-policy="automatic" --data-file=-
+fi
+SECRET_FLAGS+=("RUN_TOKEN=nightwatch-run-token:latest")
+RUN_TOKEN_VALUE="$(gcloud secrets versions access latest --secret=nightwatch-run-token)"
 [ -n "${GITHUB_REPO:-}" ]      && ENV_EXTRA+=("GITHUB_REPO=${GITHUB_REPO}")
 [ -n "${TELEGRAM_CHAT_ID:-}" ] && ENV_EXTRA+=("TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}")
 
@@ -66,12 +73,13 @@ gcloud "${DEPLOY_ARGS[@]}"
 SERVICE_URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
 echo "Service: $SERVICE_URL"
 
-# 5. Pub/Sub topic + push subscription -> the /pubsub/push endpoint.
+# 5. Pub/Sub topic + push subscription -> /pubsub/push, carrying the run token via ?token=
+#    (Pub/Sub push can't set custom headers) so the scheduled path is authorized too.
 gcloud pubsub topics create "$TOPIC" || true
+PUSH_ENDPOINT="${SERVICE_URL}/pubsub/push?token=${RUN_TOKEN_VALUE}"
 gcloud pubsub subscriptions create "${TOPIC}-push" \
-  --topic "$TOPIC" \
-  --push-endpoint "${SERVICE_URL}/pubsub/push" \
-  --ack-deadline 600 || true
+  --topic "$TOPIC" --push-endpoint "$PUSH_ENDPOINT" --ack-deadline 600 \
+  || gcloud pubsub subscriptions update "${TOPIC}-push" --push-endpoint "$PUSH_ENDPOINT"
 
 # 6. Cloud Scheduler -> publishes to the topic nightly (02:00). Adjust cron/timezone.
 gcloud scheduler jobs create pubsub nightwatch-nightly \

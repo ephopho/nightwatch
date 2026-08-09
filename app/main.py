@@ -11,11 +11,13 @@ The scheduled path (Scheduler -> Pub/Sub -> /pubsub/push) is what makes the agen
 "asynchronously in the background" without a human — the behaviour the rubric weights.
 """
 import html
+import secrets
 
 import markdown as _md
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from app import config
 from app.memory import store
 from app.runner import run_cycle
 
@@ -92,9 +94,12 @@ footer code{background:var(--card);border:1px solid var(--line);border-radius:6p
   <footer>Served live from Firestore &middot; <code>POST /run</code> to trigger a cycle</footer>
 </div>
 <script>
-function runNow(b){b.disabled=true;b.textContent='Running…';
-  fetch('/run',{method:'POST'}).then(r=>r.json()).then(function(){location.reload()})
-  .catch(function(){b.disabled=false;b.textContent='Run now';});}
+function runNow(b){var t=prompt('Run token (Secret Manager: nightwatch-run-token) — leave blank if unsecured');
+  if(t===null)return;b.disabled=true;b.textContent='Running…';
+  fetch('/run',{method:'POST',headers:{'Authorization':'Bearer '+t,'Content-Type':'application/json'},body:'{}'})
+  .then(function(r){if(!r.ok)throw new Error(r.status);return r.json()})
+  .then(function(){location.reload()})
+  .catch(function(){b.disabled=false;b.textContent='Run now';alert('Run failed — check the token.');});}
 </script>
 </body></html>"""
 
@@ -104,6 +109,17 @@ def _fmt_when(iso: str) -> str:
     if not iso:
         return "No brief yet"
     return iso[:16].replace("T", " ") + " UTC"
+
+
+def _run_authorized(request: Request) -> bool:
+    """Guard the run-trigger endpoints. Open when RUN_TOKEN is unset (local dev);
+    otherwise require it as a Bearer header or a ?token= query param (constant-time)."""
+    token = config.RUN_TOKEN
+    if not token:
+        return True
+    auth = request.headers.get("authorization", "")
+    presented = auth[7:] if auth[:7].lower() == "bearer " else request.query_params.get("token", "")
+    return bool(presented) and secrets.compare_digest(presented, token)
 
 
 @app.get("/health")
@@ -128,12 +144,17 @@ def dashboard() -> str:
 
 
 @app.post("/run")
-def manual_run() -> JSONResponse:
+def manual_run(request: Request) -> JSONResponse:
+    if not _run_authorized(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
     return JSONResponse(run_cycle())
 
 
 @app.post("/pubsub/push")
 async def pubsub_push(request: Request) -> JSONResponse:
+    # Scheduler -> Pub/Sub delivers the run token via ?token= (Pub/Sub can't set headers).
+    if not _run_authorized(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
     # Pub/Sub wraps the message in an envelope; we don't need its payload to run the
     # nightly cycle, but we read it so malformed requests fail fast. Returning 2xx acks.
     try:
