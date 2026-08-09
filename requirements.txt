@@ -7,3 +7,4 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 requests>=2.31.0
 python-dotenv>=1.0.0
+markdown>=3.5           # render the brief (Markdown) to HTML for the dashboard

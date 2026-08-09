@@ -8,13 +8,17 @@ PROJECT_ID="${PROJECT_ID:-your-gcp-project-id}"
 REGION="${REGION:-us-central1}"
 SERVICE="nightwatch"
 TOPIC="nightwatch-runs"
+# Model must be a real Vertex id. NOTE: gemini-3.5-pro does NOT exist on Vertex yet (404);
+# gemini-2.5-pro is the highest available. Override via GEMINI_MODEL once 3.5 ships.
+MODEL="${GEMINI_MODEL:-gemini-2.5-pro}"
 
 gcloud config set project "$PROJECT_ID"
 
 # 1. Enable the APIs we use.
 gcloud services enable \
   run.googleapis.com aiplatform.googleapis.com firestore.googleapis.com \
-  pubsub.googleapis.com cloudscheduler.googleapis.com secretmanager.googleapis.com
+  pubsub.googleapis.com cloudscheduler.googleapis.com secretmanager.googleapis.com \
+  cloudbuild.googleapis.com artifactregistry.googleapis.com
 
 # 2. Firestore (Native mode) — create once; ignore error if it already exists.
 gcloud firestore databases create --location="$REGION" || true
@@ -50,10 +54,10 @@ fi
 
 # 4. Deploy the container to Cloud Run. Env vars use gcloud's ^@^ delimiter so any
 #    comma-bearing value (e.g. a watchlist) is passed intact.
-DEPLOY_ENV="^@^GOOGLE_GENAI_USE_VERTEXAI=TRUE@GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@GOOGLE_CLOUD_LOCATION=${REGION}@GEMINI_MODEL=gemini-3.5-pro"
+DEPLOY_ENV="^@^GOOGLE_GENAI_USE_VERTEXAI=TRUE@GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@GOOGLE_CLOUD_LOCATION=${REGION}@GEMINI_MODEL=${MODEL}"
 [ ${#ENV_EXTRA[@]} -gt 0 ] && for kv in "${ENV_EXTRA[@]}"; do DEPLOY_ENV="${DEPLOY_ENV}@${kv}"; done
 
-DEPLOY_ARGS=(run deploy "$SERVICE" --source . --region "$REGION" --allow-unauthenticated --set-env-vars "$DEPLOY_ENV")
+DEPLOY_ARGS=(run deploy "$SERVICE" --source . --region "$REGION" --allow-unauthenticated --quiet --set-env-vars "$DEPLOY_ENV")
 if [ ${#SECRET_FLAGS[@]} -gt 0 ]; then
   DEPLOY_ARGS+=(--set-secrets "$(IFS=,; echo "${SECRET_FLAGS[*]}")")
 fi

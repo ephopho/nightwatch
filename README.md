@@ -124,6 +124,19 @@ Structure, agents, deploy path, and dashboard are **real**. Data tools:
 All Collector tools are live. The two 🔶 items are pure config: drop in the tokens and they
 fire — no agent code changes.
 
+**Live deployment (verified 2026-08-09):** shipped to Cloud Run via `bash infra/deploy.sh` —
+`/health`, the rendered dashboard, and a full `POST /run` cycle (Vertex reasoning → Firestore
+write, from the runtime service account) all confirmed against the running service; Pub/Sub
+topic + push subscription and the nightly Cloud Scheduler job are wired.
+
+**Model note:** `gemini-3.5-pro` is **not** a real Vertex model id yet (404 in every region
+checked on 2026-08-09), so `deploy.sh` and `.env` default `GEMINI_MODEL` to **`gemini-2.5-pro`**
+(the highest that responds). Swap it via env the moment 3.5 ships — no code change. This does
+mean the "Gemini 3.5+" mandatory requirement isn't currently satisfiable on Vertex.
+
+The dashboard renders the brief (Markdown → HTML) with severity color-coding, dark mode, and a
+"Run now" trigger — served straight from Firestore.
+
 > **ADK version note:** the `Runner`/`Session` calls in `app/runner.py` are the parts
 > most likely to shift between ADK releases. If an import or signature fails, check the
 > [ADK docs](https://google.github.io/adk-docs/) and adjust `runner.py` only.
