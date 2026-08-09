@@ -38,14 +38,21 @@ def open_review_issue(title: str, body: str) -> dict:
     """
     if not (config.GITHUB_TOKEN and config.GITHUB_REPO):
         return {"ok": False, "skipped": "GITHUB_TOKEN/GITHUB_REPO not set"}
-    resp = requests.post(
-        f"https://api.github.com/repos/{config.GITHUB_REPO}/issues",
-        headers={"Authorization": f"Bearer {config.GITHUB_TOKEN}", "Accept": "application/vnd.github+json"},
-        json={"title": title, "body": body, "labels": ["nightwatch"]},
-        timeout=20,
-    )
+    try:
+        resp = requests.post(
+            f"https://api.github.com/repos/{config.GITHUB_REPO}/issues",
+            headers={"Authorization": f"Bearer {config.GITHUB_TOKEN}", "Accept": "application/vnd.github+json"},
+            json={"title": title, "body": body, "labels": ["nightwatch"]},
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        return {"ok": False, "error": f"github request failed: {exc}"}
     if resp.status_code >= 300:
-        return {"ok": False, "error": f"github {resp.status_code}"}
+        try:
+            detail = resp.json().get("message", "")  # e.g. "Bad credentials", "Not Found"
+        except ValueError:
+            detail = resp.text[:200]
+        return {"ok": False, "error": f"github {resp.status_code}", "detail": detail}
     return {"ok": True, "url": resp.json().get("html_url")}
 
 
@@ -60,9 +67,18 @@ def send_digest(text: str) -> dict:
     """
     if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
         return {"ok": False, "skipped": "TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID not set"}
-    resp = requests.post(
-        f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage",
-        json={"chat_id": config.TELEGRAM_CHAT_ID, "text": text},
-        timeout=20,
-    )
-    return {"ok": resp.ok}
+    try:
+        resp = requests.post(
+            f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={"chat_id": config.TELEGRAM_CHAT_ID, "text": text},
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        return {"ok": False, "error": f"telegram request failed: {exc}"}
+    if not resp.ok:
+        try:
+            detail = resp.json().get("description", "")  # e.g. "chat not found", "Unauthorized"
+        except ValueError:
+            detail = resp.text[:200]
+        return {"ok": False, "error": f"telegram {resp.status_code}", "detail": detail}
+    return {"ok": True}

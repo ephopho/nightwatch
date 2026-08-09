@@ -82,6 +82,33 @@ PROJECT_ID=your-project REGION=us-central1 bash infra/deploy.sh
 Deploys to Cloud Run, creates the Firestore DB, and wires Cloud Scheduler → Pub/Sub →
 `/pubsub/push` for the nightly autonomous run.
 
+## Wire the GitHub + Telegram integrations (optional)
+The Actioner already ships both tools; they stay a clean no-op until their tokens exist, so
+this is pure config — no code changes.
+
+**GitHub** (`open_review_issue` → opens an issue per high-confidence item):
+1. Create a fine-grained **Personal Access Token** scoped to the target repo with
+   **Issues: Read and write**.
+2. Set `GITHUB_TOKEN` (the token) and `GITHUB_REPO` (`owner/repo`).
+
+**Telegram** (`send_digest` → DMs you the nightly digest):
+1. Message **@BotFather** → `/newbot` → copy the bot token.
+2. Send your new bot any message, then read your chat id:
+   ```bash
+   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates"   # → result[].message.chat.id
+   ```
+3. Set `TELEGRAM_BOT_TOKEN` (the token) and `TELEGRAM_CHAT_ID` (the id).
+
+**Where to put them**
+- **Local:** add the four values to `.env` (see `.env.example`); `POST /run` then fires for real.
+- **Cloud Run:** `export` them (or source your `.env`) before `bash infra/deploy.sh` — the
+  script pushes the two *tokens* into **Secret Manager**, grants the runtime service account
+  read access, and passes the non-secret ids (`GITHUB_REPO`, `TELEGRAM_CHAT_ID`) as env vars.
+  Any token left unset is skipped and stays a no-op.
+
+If a token is wrong, the tool now returns the provider's own error (e.g. GitHub
+`Bad credentials`, Telegram `chat not found`) in the run result instead of failing silently.
+
 ## Status / what's live
 Structure, agents, deploy path, and dashboard are **real**. Data tools:
 - ✅ **`fetch_market`** — live CoinGecko `/simple/price` (USD + 24h change).
@@ -90,11 +117,12 @@ Structure, agents, deploy path, and dashboard are **real**. Data tools:
 - ✅ **`web_search`** — live **Gemini + Google Search grounding** (`google-genai`): a
   grounded summary plus real source citations `{title, url, snippet}`, no extra API key.
 - ✅ **`write_brief`** — persists to Firestore (powers the dashboard).
-- 🔶 **`open_review_issue` / `send_digest`** — real code, no-op until `GITHUB_*` / `TELEGRAM_*`
-  env vars are set.
+- 🔶 **`open_review_issue` / `send_digest`** — real, fail-soft code, now **deploy-wired via
+  Secret Manager**; supply `GITHUB_*` / `TELEGRAM_*` to activate
+  (see [Wire the integrations](#wire-the-github--telegram-integrations-optional)).
 
-All Collector tools are now live. Because the Analyst only reasons over whatever the tools
-return, the two remaining 🔶 items are pure config (set the env tokens) — no agent code changes.
+All Collector tools are live. The two 🔶 items are pure config: drop in the tokens and they
+fire — no agent code changes.
 
 > **ADK version note:** the `Runner`/`Session` calls in `app/runner.py` are the parts
 > most likely to shift between ADK releases. If an import or signature fails, check the
