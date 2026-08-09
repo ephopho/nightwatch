@@ -52,8 +52,8 @@ app/
   runner.py          runs one cycle via the ADK Runner
   config.py          env-driven settings
   agents/            collector · analyst · actioner · pipeline (SequentialAgent)
-  tools/collect.py   read-only tools  (on-chain / market / web-search)  [STUBS -> wire real APIs]
-  tools/act.py       write tools      (brief / GitHub issue / Telegram digest)
+  tools/collect.py   read-only tools  (on-chain + market LIVE; web-search stub)
+  tools/act.py       write tools      (brief LIVE; GitHub issue + Telegram digest, no-op until configured)
   memory/store.py    Firestore: watermarks · situation memory · briefs
 infra/deploy.sh      gcloud: Cloud Run + Pub/Sub + Scheduler + Firestore
 Dockerfile           Cloud Run image
@@ -82,11 +82,18 @@ PROJECT_ID=your-project REGION=us-central1 bash infra/deploy.sh
 Deploys to Cloud Run, creates the Firestore DB, and wires Cloud Scheduler → Pub/Sub →
 `/pubsub/push` for the nightly autonomous run.
 
-## Status / what's stubbed
-This is the Week-1 skeleton — the **structure, agents, deploy path, and dashboard are
-real**; the data tools in `app/tools/collect.py` return sample data (marked `_stub`) so
-the whole pipeline runs today. Week 2 = wire the real explorer/price/search APIs and the
-action integrations. The agent code doesn't change when you swap stubs for live calls.
+## Status / what's live
+Structure, agents, deploy path, and dashboard are **real**. Data tools:
+- ✅ **`fetch_market`** — live CoinGecko `/simple/price` (USD + 24h change).
+- ✅ **`fetch_onchain`** — live blockchain.com explorer gateway (ETH `0x…`, BTC), with
+  Firestore watermark dedupe so only NEW transactions surface (seeds silently first run).
+- 🔶 **`web_search`** — still a stub; wire a grounding/search provider for news context.
+- ✅ **`write_brief`** — persists to Firestore (powers the dashboard).
+- 🔶 **`open_review_issue` / `send_digest`** — real code, no-op until `GITHUB_*` / `TELEGRAM_*`
+  env vars are set.
+
+Because the Analyst only reasons over whatever the tools return, swapping the remaining
+stub for a live call won't touch any agent code.
 
 > **ADK version note:** the `Runner`/`Session` calls in `app/runner.py` are the parts
 > most likely to shift between ADK releases. If an import or signature fails, check the
