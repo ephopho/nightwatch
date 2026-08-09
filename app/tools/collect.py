@@ -3,15 +3,18 @@
 ADK turns a plain typed+documented function into a tool: the name, type hints, and
 docstring become the schema the model sees — so keep the docstrings crisp.
 
-`fetch_market` and `fetch_onchain` are now LIVE (CoinGecko + blockchain.com's explorer
-gateway, the same sources ChainAlert used). `web_search` is still a stub — wire a
-grounding/search provider when you want news context. On-chain uses Firestore watermarks
-so each run only surfaces genuinely NEW transactions (seeds silently on first sighting).
+All three are now LIVE: `fetch_market` (CoinGecko), `fetch_onchain` (blockchain.com's
+explorer gateway), and `web_search` (a Gemini call with the Google Search tool, so news
+context is grounded in real pages with citations). On-chain uses Firestore watermarks so
+each run only surfaces genuinely NEW transactions (seeds silently on first sighting).
 """
 import re
 
 import requests
+from google import genai
+from google.genai import types
 
+from app import config
 from app.memory import store
 
 # --- Market (CoinGecko) -----------------------------------------------------
@@ -129,14 +132,79 @@ def fetch_onchain(targets: str) -> dict:
     return {"events": events, "skipped": skipped, "source": "onchain"}
 
 
+# --- Web search (Gemini + Google Search grounding) --------------------------
+_genai_client = None
+
+
+def _genai() -> "genai.Client":
+    """Lazily build a google-genai client (Vertex AI when configured, else API key)."""
+    global _genai_client
+    if _genai_client is None:
+        if str(config.USE_VERTEX).upper() in ("1", "TRUE", "YES", "Y"):
+            _genai_client = genai.Client(
+                vertexai=True,
+                project=config.GCP_PROJECT or None,
+                location=config.GCP_LOCATION or None,
+            )
+        else:
+            _genai_client = genai.Client()  # reads GOOGLE_API_KEY
+    return _genai_client
+
+
 def web_search(query: str) -> dict:
     """Search the web for recent news/context relevant to the query (grounding).
+
+    Runs a Gemini call with the Google Search tool, so the answer is grounded in live
+    web pages rather than the model's memory, then returns the grounded summary and the
+    source citations behind it.
 
     Args:
         query: what to look up, e.g. "Lido governance vote August 2026".
 
     Returns:
-        A dict with a `results` list of {title, url, snippet}.
+        A dict with a grounded `summary`, a `results` list of {title, url, snippet},
+        and the `queries` the model actually searched.
     """
-    # TODO: wire a search/grounding provider (Vertex AI Grounding, or a search API).
-    return {"results": [{"title": "STUB result", "url": "", "snippet": query, "_stub": True}]}
+    try:
+        resp = _genai().models.generate_content(
+            model=config.GEMINI_MODEL,
+            contents=(
+                "Find recent, notable news relevant to this watch query and summarize "
+                f"what changed in roughly the last day. Be concise and factual.\n\nQuery: {query}"
+            ),
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                temperature=0.2,
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 — a search failure must not wedge the run
+        return {"results": [], "summary": "", "error": str(exc), "source": "web_search"}
+
+    candidate = (resp.candidates or [None])[0]
+    meta = getattr(candidate, "grounding_metadata", None)
+
+    results = []
+    for chunk in getattr(meta, "grounding_chunks", None) or []:
+        web = getattr(chunk, "web", None)
+        uri = getattr(web, "uri", None)
+        if uri:
+            results.append({"title": getattr(web, "title", "") or "", "url": uri, "snippet": ""})
+
+    # Attach the grounded sentence(s) each source supports as that source's snippet.
+    for support in getattr(meta, "grounding_supports", None) or []:
+        text = getattr(getattr(support, "segment", None), "text", "") or ""
+        for idx in getattr(support, "grounding_chunk_indices", None) or []:
+            if 0 <= idx < len(results) and not results[idx]["snippet"]:
+                results[idx]["snippet"] = text
+
+    try:
+        summary = (resp.text or "").strip()
+    except Exception:  # noqa: BLE001 — .text can raise on non-text finishes
+        summary = ""
+
+    return {
+        "results": results,
+        "summary": summary,
+        "queries": list(getattr(meta, "web_search_queries", None) or []),
+        "source": "web_search",
+    }

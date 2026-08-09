@@ -52,7 +52,7 @@ app/
   runner.py          runs one cycle via the ADK Runner
   config.py          env-driven settings
   agents/            collector · analyst · actioner · pipeline (SequentialAgent)
-  tools/collect.py   read-only tools  (on-chain + market LIVE; web-search stub)
+  tools/collect.py   read-only tools  (on-chain + market + web-search all LIVE)
   tools/act.py       write tools      (brief LIVE; GitHub issue + Telegram digest, no-op until configured)
   memory/store.py    Firestore: watermarks · situation memory · briefs
 infra/deploy.sh      gcloud: Cloud Run + Pub/Sub + Scheduler + Firestore
@@ -87,13 +87,14 @@ Structure, agents, deploy path, and dashboard are **real**. Data tools:
 - ✅ **`fetch_market`** — live CoinGecko `/simple/price` (USD + 24h change).
 - ✅ **`fetch_onchain`** — live blockchain.com explorer gateway (ETH `0x…`, BTC), with
   Firestore watermark dedupe so only NEW transactions surface (seeds silently first run).
-- 🔶 **`web_search`** — still a stub; wire a grounding/search provider for news context.
+- ✅ **`web_search`** — live **Gemini + Google Search grounding** (`google-genai`): a
+  grounded summary plus real source citations `{title, url, snippet}`, no extra API key.
 - ✅ **`write_brief`** — persists to Firestore (powers the dashboard).
 - 🔶 **`open_review_issue` / `send_digest`** — real code, no-op until `GITHUB_*` / `TELEGRAM_*`
   env vars are set.
 
-Because the Analyst only reasons over whatever the tools return, swapping the remaining
-stub for a live call won't touch any agent code.
+All Collector tools are now live. Because the Analyst only reasons over whatever the tools
+return, the two remaining 🔶 items are pure config (set the env tokens) — no agent code changes.
 
 > **ADK version note:** the `Runner`/`Session` calls in `app/runner.py` are the parts
 > most likely to shift between ADK releases. If an import or signature fails, check the
