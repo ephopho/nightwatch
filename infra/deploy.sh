@@ -47,10 +47,12 @@ fi
 # Run-trigger token — create once (random) if absent, then ALWAYS attach so POST /run and
 # /pubsub/push are gated. Its value is fetched here to embed in the Pub/Sub push URL (step 5).
 if ! gcloud secrets describe nightwatch-run-token >/dev/null 2>&1; then
-  openssl rand -hex 32 | tr -d '\n' | gcloud secrets create nightwatch-run-token --replication-policy="automatic" --data-file=-
+  openssl rand -hex 32 | tr -d '\r\n' | gcloud secrets create nightwatch-run-token --replication-policy="automatic" --data-file=-
 fi
 SECRET_FLAGS+=("RUN_TOKEN=nightwatch-run-token:latest")
-RUN_TOKEN_VALUE="$(gcloud secrets versions access latest --secret=nightwatch-run-token)"
+# tr strips BOTH \r and \n — openssl on git-bash/Windows emits CRLF, and a stray trailing
+# \r baked into the token silently breaks Bearer/?token= matching.
+RUN_TOKEN_VALUE="$(gcloud secrets versions access latest --secret=nightwatch-run-token | tr -d '\r\n')"
 [ -n "${GITHUB_REPO:-}" ]      && ENV_EXTRA+=("GITHUB_REPO=${GITHUB_REPO}")
 [ -n "${TELEGRAM_CHAT_ID:-}" ] && ENV_EXTRA+=("TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}")
 
