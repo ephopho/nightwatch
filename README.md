@@ -148,10 +148,12 @@ fire — no agent code changes.
 write, from the runtime service account) all confirmed against the running service; Pub/Sub
 topic + push subscription and the nightly Cloud Scheduler job are wired.
 
-**Model note:** `gemini-3.5-pro` is **not** a real Vertex model id yet (404 in every region
-checked on 2026-08-09), so `deploy.sh` and `.env` default `GEMINI_MODEL` to **`gemini-2.5-pro`**
-(the highest that responds). Swap it via env the moment 3.5 ships — no code change. This does
-mean the "Gemini 3.5+" mandatory requirement isn't currently satisfiable on Vertex.
+**Model note:** Nightwatch runs **`gemini-3.5-flash`** on Vertex AI — satisfying the
+"Gemini 3.5+" mandate. Key gotcha: Vertex serves 3.x models **only from the `global`
+endpoint** (regional endpoints like `us-central1` list them but 404 on generate), so
+`GOOGLE_CLOUD_LOCATION=global` for Gemini while Cloud Run, Firestore, Pub/Sub, and
+Scheduler stay in `us-central1`. (`gemini-3.5-pro` doesn't exist yet; `gemini-3.6-flash`
+is available as an even-newer option.)
 
 The dashboard renders the brief (Markdown → HTML) with severity color-coding, dark mode, and a
 "Run now" trigger — served straight from Firestore.

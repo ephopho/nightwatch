@@ -8,9 +8,11 @@ PROJECT_ID="${PROJECT_ID:-your-gcp-project-id}"
 REGION="${REGION:-us-central1}"
 SERVICE="nightwatch"
 TOPIC="nightwatch-runs"
-# Model must be a real Vertex id. NOTE: gemini-3.5-pro does NOT exist on Vertex yet (404);
-# gemini-2.5-pro is the highest available. Override via GEMINI_MODEL once 3.5 ships.
-MODEL="${GEMINI_MODEL:-gemini-2.5-pro}"
+# Gemini 3.5+ per the rules. On Vertex, 3.x is served ONLY from the "global" endpoint
+# (regional endpoints 404 on generate), so Gemini is routed at global while the Cloud Run
+# service, Firestore, Pub/Sub and Scheduler all stay in $REGION.
+MODEL="${GEMINI_MODEL:-gemini-3.5-flash}"
+VERTEX_LOCATION="${VERTEX_LOCATION:-global}"
 
 gcloud config set project "$PROJECT_ID"
 
@@ -61,7 +63,7 @@ fi
 
 # 4. Deploy the container to Cloud Run. Env vars use gcloud's ^@^ delimiter so any
 #    comma-bearing value (e.g. a watchlist) is passed intact.
-DEPLOY_ENV="^@^GOOGLE_GENAI_USE_VERTEXAI=TRUE@GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@GOOGLE_CLOUD_LOCATION=${REGION}@GEMINI_MODEL=${MODEL}"
+DEPLOY_ENV="^@^GOOGLE_GENAI_USE_VERTEXAI=TRUE@GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@GOOGLE_CLOUD_LOCATION=${VERTEX_LOCATION}@GEMINI_MODEL=${MODEL}"
 [ ${#ENV_EXTRA[@]} -gt 0 ] && for kv in "${ENV_EXTRA[@]}"; do DEPLOY_ENV="${DEPLOY_ENV}@${kv}"; done
 
 DEPLOY_ARGS=(run deploy "$SERVICE" --source . --region "$REGION" --allow-unauthenticated --quiet --set-env-vars "$DEPLOY_ENV")

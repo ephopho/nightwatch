@@ -9,11 +9,12 @@ load_dotenv()
 APP_NAME = "nightwatch"
 
 # --- Model / Vertex ---------------------------------------------------------
-# Must be Gemini 3.5 or newer per the hackathon rules. Verify the exact model id
-# available in your project/region before the demo.
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-pro")
+# Gemini 3.5+ per the hackathon rules. On Vertex, 3.x models are served ONLY from the
+# "global" endpoint — regional endpoints (e.g. us-central1) list them but 404 on generate —
+# so GCP_LOCATION defaults to "global". Firestore is unaffected (it keys off the project).
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 GCP_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "")
-GCP_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+GCP_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
 # ADK reads GOOGLE_GENAI_USE_VERTEXAI to route through Vertex AI vs AI Studio.
 USE_VERTEX = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "TRUE")
 
