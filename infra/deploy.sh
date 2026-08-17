@@ -53,8 +53,11 @@ SECRET_FLAGS+=("RUN_TOKEN=nightwatch-run-token:latest")
 # tr strips BOTH \r and \n — openssl on git-bash/Windows emits CRLF, and a stray trailing
 # \r baked into the token silently breaks Bearer/?token= matching.
 RUN_TOKEN_VALUE="$(gcloud secrets versions access latest --secret=nightwatch-run-token | tr -d '\r\n')"
-[ -n "${GITHUB_REPO:-}" ]      && ENV_EXTRA+=("GITHUB_REPO=${GITHUB_REPO}")
-[ -n "${TELEGRAM_CHAT_ID:-}" ] && ENV_EXTRA+=("TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}")
+[ -n "${GITHUB_REPO:-}" ]         && ENV_EXTRA+=("GITHUB_REPO=${GITHUB_REPO}")
+[ -n "${TELEGRAM_CHAT_ID:-}" ]    && ENV_EXTRA+=("TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}")
+# --set-env-vars below REPLACES the full env set, so carry the watchlist through the deploy
+# too (export NIGHTWATCH_WATCHLIST before running) or it gets wiped on each ship.
+[ -n "${NIGHTWATCH_WATCHLIST:-}" ] && ENV_EXTRA+=("NIGHTWATCH_WATCHLIST=${NIGHTWATCH_WATCHLIST}")
 
 if [ ${#SECRET_FLAGS[@]} -gt 0 ]; then
   PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
