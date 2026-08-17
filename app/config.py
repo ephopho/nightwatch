@@ -13,6 +13,9 @@ APP_NAME = "nightwatch"
 # "global" endpoint — regional endpoints (e.g. us-central1) list them but 404 on generate —
 # so GCP_LOCATION defaults to "global". Firestore is unaffected (it keys off the project).
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+# Open Gemma model (managed / "-maas", served from the same Vertex global endpoint) used as
+# a cheap first-pass triage classifier — deep reasoning stays on Gemini 3.5 (the Analyst).
+GEMMA_MODEL = os.getenv("GEMMA_MODEL", "gemma-4-26b-a4b-it-maas")
 GCP_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "")
 GCP_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
 # ADK reads GOOGLE_GENAI_USE_VERTEXAI to route through Vertex AI vs AI Studio.

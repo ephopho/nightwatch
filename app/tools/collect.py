@@ -208,3 +208,48 @@ def web_search(query: str) -> dict:
         "queries": list(getattr(meta, "web_search_queries", None) or []),
         "source": "web_search",
     }
+
+
+# --- Fast triage (open Gemma model) -----------------------------------------
+_LEVEL_RE = re.compile(r"\s*(\d+)\s*[:.\-]\s*(HIGH|MEDIUM|LOW)", re.IGNORECASE)
+
+
+def gemma_triage(items: str) -> dict:
+    """Fast first-pass materiality triage using the open **Gemma** model.
+
+    A deliberate model-routing choice: the cheap open model does the throwaway
+    HIGH/MEDIUM/LOW bucketing so the expensive Gemini 3.5 reasoning (the Analyst) is
+    reserved for the items that matter. Fails soft — never wedges the run.
+
+    Args:
+        items: candidate signals/headlines to triage, one per line.
+
+    Returns:
+        A dict with `triage`: a list of {item, materiality} (HIGH/MEDIUM/LOW/UNKNOWN),
+        and the `model` used.
+    """
+    lines = [ln.strip() for ln in items.splitlines() if ln.strip()]
+    if not lines:
+        return {"triage": [], "model": config.GEMMA_MODEL, "source": "gemma_triage"}
+    numbered = "\n".join(f"{i + 1}. {ln}" for i, ln in enumerate(lines))
+    prompt = (
+        "You are a fast triage classifier. For each numbered item, judge its materiality to a "
+        "crypto/markets watcher as HIGH, MEDIUM, or LOW. Reply with exactly one line per item in "
+        "the form `N: LEVEL` and nothing else.\n\n" + numbered
+    )
+    try:
+        resp = _genai().models.generate_content(
+            model=config.GEMMA_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0, max_output_tokens=1024),
+        )
+    except Exception as exc:  # noqa: BLE001 — triage is best-effort; the Analyst still runs
+        return {"triage": [], "error": str(exc), "model": config.GEMMA_MODEL, "source": "gemma_triage"}
+
+    levels = {}
+    for line in (resp.text or "").splitlines():
+        m = _LEVEL_RE.match(line)
+        if m:
+            levels[int(m.group(1))] = m.group(2).upper()
+    triage = [{"item": ln, "materiality": levels.get(i + 1, "UNKNOWN")} for i, ln in enumerate(lines)]
+    return {"triage": triage, "model": config.GEMMA_MODEL, "source": "gemma_triage"}

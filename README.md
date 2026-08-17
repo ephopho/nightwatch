@@ -26,6 +26,7 @@ flowchart TD
     end
     RUN --- PIPE
     AN -->|reasoning| VTX[Vertex AI · Gemini 3.5]
+    COL -->|fast triage| GEM[Gemma · Vertex AI]
     COL -->|watermarks| FS[(Firestore<br/>state · memory · briefs)]
     ACT -->|brief| FS
     ACT -->|review issue| GH[GitHub]
@@ -35,7 +36,8 @@ flowchart TD
 ```
 
 **Flow:** Scheduler → Pub/Sub → Cloud Run fires the pipeline. **Collector** gathers new
-signal (read-only tools), **Analyst** reasons over it with Gemini (no tools = isolated),
+signal (read-only tools) and routes a cheap first-pass materiality triage to the open
+**Gemma** model, **Analyst** reasons over it with **Gemini 3.5** (no tools = isolated),
 **Actioner** completes the chore with scoped write tools, gated on a confidence
 threshold. State, cross-run memory, and briefs live in Firestore.
 
@@ -44,6 +46,7 @@ threshold. State, cross-run memory, and briefs live in Firestore.
 - ✅ **Google Agent Framework** — Google **ADK** (`SequentialAgent` + `LlmAgent`, `app/agents/pipeline.py`).
 - ✅ **Google Cloud infra** — **Cloud Run** (host) + **Pub/Sub** + **Firestore** (+ Cloud Scheduler, Secret Manager).
 - ✅ **Category** — Taskmaster (autonomous, background, takes action).
+- ➕ **Bonus — 2nd Google model** — **Gemma** (`gemma-4-26b-a4b-it-maas`, managed on Vertex) as a fast triage classifier; deep reasoning stays on Gemini 3.5.
 
 ## Repository layout
 ```
@@ -52,7 +55,7 @@ app/
   runner.py          runs one cycle via the ADK Runner
   config.py          env-driven settings
   agents/            collector · analyst · actioner · pipeline (SequentialAgent)
-  tools/collect.py   read-only tools  (on-chain + market + web-search all LIVE)
+  tools/collect.py   read-only tools  (on-chain + market + web-search + Gemma triage)
   tools/act.py       write tools      (brief LIVE; GitHub issue + Telegram digest, no-op until configured)
   memory/store.py    Firestore: watermarks · situation memory · briefs
 infra/deploy.sh      gcloud: Cloud Run + Pub/Sub + Scheduler + Firestore
