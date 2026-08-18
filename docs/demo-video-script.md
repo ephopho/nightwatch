@@ -1,6 +1,6 @@
 # 🌙 Nightwatch — 4-Minute Demo Video Script
 
-**Category:** Taskmaster · **Model:** Gemini 3.5 (Vertex AI) · **Runtime:** Cloud Run
+**Category:** Taskmaster · **Models:** Gemini 3.5 + Gemma (Vertex AI) · **Runtime:** Cloud Run
 **Hard rules:** ≤ 4:00, English, **unedited live run**, **visible proof the backend runs on Google Cloud.**
 
 The script is written to score against the rubric:
@@ -55,10 +55,11 @@ Target narration ≈ **560 words** (~140 wpm) to land under 4:00 with breathing 
 **Narration:**
 > "The engineering is deliberately decoupled. Cloud Scheduler fires Pub/Sub, which triggers Cloud Run.
 > Inside runs a Google **ADK** SequentialAgent with three isolated stages. The **Collector** has only
-> read-only tools. The **Analyst** — Gemini 3.5 — has **no tools at all**, so it can only reason, never
-> act. The **Actioner** holds the only write-capable tools, gated on a confidence threshold. State,
-> cross-run memory, and briefs live in **Firestore**. Read/write access is scoped per agent — that
-> separation is the security story."
+> read-only tools — and it routes a cheap first-pass triage to the open **Gemma** model, so the expensive
+> reasoning is spent only where it matters. The **Analyst** — **Gemini 3.5** — has **no tools at all**, so
+> it can only reason, never act. The **Actioner** holds the only write-capable tools, gated on a confidence
+> threshold. State, cross-run memory, and briefs live in **Firestore**. Read/write access is scoped per
+> agent — that separation is the security story."
 
 ### Beat 4 — LIVE, UNEDITED RUN (1:30–3:05) · *Demo 30% — the "Proof of Action"*
 **On screen (do NOT cut):** Split view — **left:** Cloud Run **Logs** tab; **right:** the dashboard.
@@ -66,7 +67,8 @@ Click **"Run now"**, paste the token into the prompt.
 **Narration (let the logs stream underneath you):**
 > "Let's run it live. I click Run now — the trigger is token-gated, so I paste the run token.
 > Watch the Cloud Run logs: the **Collector** is calling its tools — live market prices from CoinGecko,
-> and web search **grounded through Vertex** with real citations. Now the **Analyst** — Gemini 3.5 —
+> web search **grounded through Vertex** with real citations, and a fast **Gemma** triage tagging each
+> signal's materiality. Now the **Analyst** — Gemini 3.5 —
 > returns structured JSON: each item with a severity and a confidence score. And the **Actioner** takes
 > over: it writes the brief to Firestore, and because my GitHub and Telegram tokens aren't set here, those
 > integrations **cleanly skip** instead of crashing — that's the failure-tolerance."
@@ -82,8 +84,8 @@ Click **"Run now"**, paste the token into the prompt.
 Vertex AI logs showing **`gemini-3.5-flash`** requests, Cloud Scheduler's nightly job, Secret Manager entry.
 **Narration:**
 > "And it's genuinely on Google Cloud: here's the Cloud Run service and its dot-run-app URL, Vertex AI
-> logs showing the Gemini 3.5 calls, the nightly Cloud Scheduler job that runs this **with no human**, and
-> the token secret in Secret Manager. Autonomous, scheduled, secured."
+> logs showing the Gemini 3.5 **and Gemma** calls, the nightly Cloud Scheduler job that runs this **with no
+> human**, and the token secret in Secret Manager. Autonomous, scheduled, secured."
 
 ### Beat 6 — Impact & close (3:40–4:00) · *Innovation 40%*
 **On screen:** Back to the finished brief on the dashboard; end card with the repo URL.
