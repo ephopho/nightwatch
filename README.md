@@ -155,8 +155,9 @@ topic + push subscription and the nightly Cloud Scheduler job are wired.
 "Gemini 3.5+" mandate. Key gotcha: Vertex serves 3.x models **only from the `global`
 endpoint** (regional endpoints like `us-central1` list them but 404 on generate), so
 `GOOGLE_CLOUD_LOCATION=global` for Gemini while Cloud Run, Firestore, Pub/Sub, and
-Scheduler stay in `us-central1`. (`gemini-3.5-pro` doesn't exist yet; `gemini-3.6-flash`
-is available as an even-newer option.)
+Scheduler stay in `us-central1`. (`gemini-3.5-pro` doesn't exist yet. Don't move to `gemini-3.6-flash`: it's a
+short-term-availability model that Vertex retires on 2026-11-19; Google's recommended
+targets are `gemini-3.5-flash` and `gemini-3.8-flash`.)
 
 The dashboard renders the brief (Markdown → HTML) with severity color-coding, dark mode, and a
 "Run now" trigger — served straight from Firestore.
