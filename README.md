@@ -148,8 +148,12 @@ fire — no agent code changes.
 
 **Live deployment (verified 2026-08-09):** shipped to Cloud Run via `bash infra/deploy.sh` —
 `/health`, the rendered dashboard, and a full `POST /run` cycle (Vertex reasoning → Firestore
-write, from the runtime service account) all confirmed against the running service; Pub/Sub
-topic + push subscription and the nightly Cloud Scheduler job are wired.
+write, from the runtime service account) all confirmed against the running service.
+
+**Nightly runs are currently off.** The `nightwatch-nightly` Cloud Scheduler job is paused and
+the `nightwatch-runs` topic has no push subscription, so cycles only run on demand via **Run
+now** / `POST /run`. To turn them back on, re-run `infra/deploy.sh` (it recreates the push
+subscription), then `gcloud scheduler jobs resume nightwatch-nightly --location us-central1`.
 
 **Model note:** Nightwatch runs **`gemini-3.5-flash`** on Vertex AI — satisfying the
 "Gemini 3.5+" mandate. Key gotcha: Vertex serves 3.x models **only from the `global`
