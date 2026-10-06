@@ -1,10 +1,11 @@
-# Nightwatch — Python deps. Pin exact versions once your environment resolves;
-# ADK's API surface evolves, so check https://google.github.io/adk-docs/ if imports drift.
-google-adk>=1.0.0
-google-genai>=1.0.0
-google-cloud-firestore>=2.16.0
-fastapi>=0.110.0
-uvicorn[standard]>=0.29.0
-requests>=2.31.0
-python-dotenv>=1.0.0
-markdown>=3.5           # render the brief (Markdown) to HTML for the dashboard
+# Nightwatch — Python deps. Direct deps pinned to the set verified on 2026-10-06; bump
+# deliberately. ADK's API surface evolves, so check https://google.github.io/adk-docs/
+# if imports drift after an upgrade.
+google-adk==2.11.0
+google-genai==2.28.0
+google-cloud-firestore==2.34.0
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+requests==2.34.2
+python-dotenv==1.2.4
+markdown==3.11          # render the brief (Markdown) to HTML for the dashboard
